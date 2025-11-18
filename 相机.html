@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>摄像头调用页面</title>
+    <style>
+        /* 样式适配 Axure 预览，简洁无冗余 */
+        body { margin: 0; padding: 10px; text-align: center; font-family: sans-serif; }
+        #videoContainer { width: 100%; max-width: 400px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+        #videoPreview { width: 100%; height: auto; }
+        #canvasScreenshot { display: none; /* 隐藏画布，仅用于拍照 */ }
+        .btn-group { margin-top: 15px; }
+        button { 
+            padding: 8px 20px; margin: 0 5px; 
+            border: none; border-radius: 4px; 
+            background: #2f54eb; color: #fff; cursor: pointer;
+        }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #tipText { color: #666; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <!-- 视频预览窗口 -->
+        <video id="videoPreview" autoplay playsinline muted></video>
+        <!-- 拍照画布（隐藏） -->
+        <canvas id="canvasScreenshot"></canvas>
+    </div>
+    <div class="btn-group">
+        <button id="startBtn">启动摄像头</button>
+        <button id="captureBtn" disabled>拍照截图</button>
+        <button id="stopBtn" disabled>关闭摄像头</button>
+    </div>
+    <div id="tipText">请点击「启动摄像头」并允许浏览器权限</div>
+
+    <script>
+        // 核心元素获取
+        const video = document.getElementById('videoPreview');
+        const canvas = document.getElementById('canvasScreenshot');
+        const startBtn = document.getElementById('startBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const tipText = document.getElementById('tipText');
+        let mediaStream = null; // 存储摄像头流
+
+        // 启动摄像头
+        startBtn.addEventListener('click', async () => {
+            try {
+                // 调用浏览器摄像头 API（请求视频流）
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' } // user=前置摄像头，environment=后置（PC端通常无后置）
+                });
+                // 视频流绑定到预览窗口
+                video.srcObject = mediaStream;
+                // 按钮状态更新
+                startBtn.disabled = true;
+                captureBtn.disabled = false;
+                stopBtn.disabled = false;
+                tipText.textContent = '摄像头已启动，可点击拍照截图';
+            } catch (error) {
+                // 权限拒绝或设备异常处理
+                if (error.name === 'NotAllowedError') {
+                    tipText.textContent = '已拒绝摄像头权限，请在浏览器设置中重新开启';
+                } else if (error.name === 'NotFoundError') {
+                    tipText.textContent = '未检测到可用摄像头，请检查设备';
+                } else {
+                    tipText.textContent = '启动失败：' + error.message;
+                }
+            }
+        });
+
+        // 拍照截图（将当前视频帧绘制到画布，可后续扩展保存功能）
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // 绘制当前视频帧
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            // 此处可添加截图保存逻辑（示例：转为base64格式）
+            const screenshotBase64 = canvas.toDataURL('image/png');
+            tipText.textContent = '截图成功！Base64已生成（可在控制台查看）';
+            console.log('截图Base64:', screenshotBase64); // 供调试使用
+        });
+
+        // 关闭摄像头
+        stopBtn.addEventListener('click', () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop()); // 停止所有流轨道
+                video.srcObject = null;
+                mediaStream = null;
+                // 按钮状态重置
+                startBtn.disabled = false;
+                captureBtn.disabled = true;
+                stopBtn.disabled = true;
+                tipText.textContent = '摄像头已关闭，可重新启动';
+            }
+        });
+    </script>
+</body>
+</html>
